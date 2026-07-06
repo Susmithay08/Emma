@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: #0a0e14;
+  overflow: hidden;
+}
+
+/* Light mode overrides */
+html.light body {
+  background: #eef1f6;
+}
+
+@layer components {
+  .glass {
+    @apply bg-steel-850/70 backdrop-blur-xl border border-white/5 rounded-2xl shadow-glass;
+  }
+  html.light .glass {
+    @apply bg-white/70 border-black/5;
+  }
+  .btn {
+    @apply select-none rounded-xl font-semibold tracking-wide transition-all duration-150
+           active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .card-label {
+    @apply text-[11px] uppercase tracking-[0.15em] text-slate-400 font-medium;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #374357;
+  border-radius: 4px;
+}
+
+.grid-floor {
+  background-image: linear-gradient(rgba(255, 107, 26, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 107, 26, 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+@keyframes floormove {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 40px;
+  }
+}

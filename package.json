@@ -1,0 +1,16 @@
+{
+  "name": "emma-operator-console",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EMMA Operator Console — industrial HMI for a robotic surface-prep system (real host telemetry + physics-modelled robot).",
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "dev": "concurrently -n backend,frontend -c orange,cyan \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
+    "backend": "npm --prefix backend start",
+    "frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
