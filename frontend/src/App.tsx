@@ -54,13 +54,14 @@ function Console() {
   const estop = robot?.status === 'estop';
   const healthScore = computeHealthScore(telemetry);
   const immersive = page === 'dashboard' || page === 'robot';
+  const logout = () => { setLoggedIn(false); setPage('overview'); };
 
   return (
     <div className="atmosphere relative h-full flex">
       <Sidebar page={page} setPage={setPage} faultCount={robot?.faults.length ?? 0} health={robot?.health || 'healthy'} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar robot={robot} conn={conn} latency={latency} operator={operator} healthScore={healthScore} />
+        <TopBar robot={robot} conn={conn} latency={latency} operator={operator} healthScore={healthScore} onLogout={logout} />
 
         {estop && (
           <div className="relative z-20 mx-4 mt-2 rounded-2xl bg-em-orange/90 text-black px-5 py-2.5 flex items-center justify-between shadow-glowOrange animate-riseIn">
@@ -80,7 +81,7 @@ function Console() {
               <span>Connecting to Temple Allen controller…</span>
             </div>
           ) : page === 'overview' ? (
-            <Overview tel={telemetry} latency={latency} />
+            <Overview tel={telemetry} latency={latency} healthScore={healthScore} setPage={setPage} />
           ) : page === 'dashboard' ? (
             <Dashboard tel={telemetry} latency={latency} conn={conn} />
           ) : page === 'robot' ? (

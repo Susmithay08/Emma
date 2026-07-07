@@ -6,9 +6,15 @@ export default function Login({ onLogin }: { onLogin: (operator: string) => void
   const [showPw, setShowPw] = useState(false);
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!username.trim() || !password.trim()) {
+      setError('Enter both username and password to sign in.');
+      return;
+    }
+    setError('');
     setBusy(true);
     try {
       await fetch('/api/login', {
@@ -63,6 +69,7 @@ export default function Login({ onLogin }: { onLogin: (operator: string) => void
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
+                required
                 className="flex-1 bg-transparent py-3 text-em-ink placeholder:text-em-muted/60 focus:outline-none"
               />
               <button type="button" onClick={() => setShowPw((v) => !v)} className="text-em-muted hover:text-em-ink">
@@ -70,6 +77,8 @@ export default function Login({ onLogin }: { onLogin: (operator: string) => void
               </button>
             </div>
           </label>
+
+          {error && <div className="text-xs text-red-400 mb-3 -mt-1">{error}</div>}
 
           <div className="flex items-center justify-between mb-6 text-sm">
             <label className="flex items-center gap-2 cursor-pointer select-none text-em-muted">

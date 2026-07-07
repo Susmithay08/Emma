@@ -7,7 +7,12 @@ export default function Settings({ tel, latency }: { tel: Telemetry | null; late
   const { settings, update } = useSettings();
 
   return (
-    <div className="h-full overflow-y-auto pr-1 space-y-4 max-w-3xl">
+    <div className="h-full overflow-y-auto pr-1">
+      <div className="mb-5">
+        <h1 className="text-2xl font-semibold text-em-ink">Settings</h1>
+        <p className="text-sm text-em-muted">Console preferences for this operator session</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       <Section title="Appearance">
         <Row label="Theme" hint="Switch between dark industrial and light HMI themes">
           <Toggle
@@ -77,9 +82,10 @@ export default function Settings({ tel, latency }: { tel: Telemetry | null; late
           </button>
         </Row>
       </Section>
+      </div>
 
-      <div className="text-xs text-slate-600 font-mono px-1">
-        EMMA Operator Console v1.0.0 · Simulation build · No external hardware required
+      <div className="text-xs text-em-muted font-mono px-1 mt-4">
+        Temple Allen · EMMA Operator Console v1.0.0 · Simulation build · No external hardware required
       </div>
     </div>
   );
@@ -88,7 +94,7 @@ export default function Settings({ tel, latency }: { tel: Telemetry | null; late
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="glass p-5">
-      <h3 className="text-sm font-bold uppercase tracking-widest text-slate-300 mb-4">{title}</h3>
+      <h3 className="text-[10px] font-medium uppercase tracking-[0.2em] text-em-muted mb-4">{title}</h3>
       <div className="space-y-4">{children}</div>
     </div>
   );
@@ -98,8 +104,8 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   return (
     <div className="flex items-center justify-between gap-6 py-1">
       <div>
-        <div className="text-sm font-semibold text-slate-200">{label}</div>
-        {hint && <div className="text-xs text-slate-500 mt-0.5">{hint}</div>}
+        <div className="text-sm font-medium text-em-ink">{label}</div>
+        {hint && <div className="text-xs text-em-muted mt-0.5">{hint}</div>}
       </div>
       <div className="shrink-0">{children}</div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { Robot } from '../lib/types';
 
 const HEALTH_COLOR: Record<string, string> = { healthy: '#22c55e', warning: '#ffb020', fault: '#ff5a5a' };
@@ -9,17 +9,28 @@ export default function TopBar({
   latency,
   operator,
   healthScore,
+  onLogout,
 }: {
   robot: Robot | null;
   conn: string;
   latency: number;
   operator: string;
   healthScore: number;
+  onLogout: () => void;
 }) {
   const [time, setTime] = useState(new Date());
+  const [menu, setMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
   }, []);
   const hc = HEALTH_COLOR[robot?.health || 'healthy'];
   const faults = robot?.faults.length ?? 0;
@@ -66,12 +77,28 @@ export default function TopBar({
         {/* warning */}
         <div className="w-9 h-9 rounded-lg grid place-items-center" style={{ color: faults ? '#ffb020' : '#8b909a' }}>⚠</div>
 
-        {/* avatar */}
-        <div className="flex items-center gap-2 pl-3 border-l border-white/8">
-          <div className="w-9 h-9 rounded-full grid place-items-center border border-em-orange/40 text-em-orange text-xs font-bold">
-            {operator.split(' ').map((s) => s[0]).join('').slice(0, 2).toUpperCase()}
-          </div>
-          <span className="hidden lg:block text-em-muted text-sm">▾</span>
+        {/* avatar + menu */}
+        <div ref={menuRef} className="relative pl-3 border-l border-white/8">
+          <button onClick={() => setMenu((v) => !v)} className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full grid place-items-center border border-em-orange/40 text-em-orange text-xs font-bold">
+              {operator.split(' ').map((s) => s[0]).join('').slice(0, 2).toUpperCase()}
+            </div>
+            <span className="hidden lg:block text-em-muted text-sm">▾</span>
+          </button>
+          {menu && (
+            <div className="absolute right-0 top-12 w-52 glass p-1.5 z-50 animate-riseIn">
+              <div className="px-3 py-2 border-b border-white/6">
+                <div className="text-sm font-medium text-em-ink">{operator}</div>
+                <div className="text-[11px] text-em-muted">Operator · Shift A</div>
+              </div>
+              <button
+                onClick={() => { setMenu(false); onLogout(); }}
+                className="btn w-full text-left px-3 py-2 mt-1 rounded-lg text-sm text-em-ink hover:bg-white/5 flex items-center gap-2"
+              >
+                <span>⏻</span> Sign out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
