@@ -12,6 +12,8 @@ const NAV: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: 'settings', label: 'Settings', icon: <IconSettings size={20} /> },
 ];
 
+// Auto-hiding rail: 64px icon strip by default, expands to a labelled panel on
+// hover (overlays content, so it never reflows the 3D canvas).
 export default function Sidebar({
   page,
   setPage,
@@ -23,57 +25,55 @@ export default function Sidebar({
   faultCount: number;
   health: string;
 }) {
+  const hc = health === 'fault' ? '#ff5a5a' : health === 'warning' ? '#ffb020' : '#22c55e';
   return (
-    <nav className="relative z-20 shrink-0 w-56 h-full flex flex-col px-3 py-4 border-r border-white/6">
-      {/* brand */}
-      <div className="flex items-center gap-2.5 px-2 mb-6">
-        <div className="w-11 h-11 rounded-full grid place-items-center border-2 border-em-orange">
-          <span className="h-display font-bold text-em-orange text-sm leading-none">TA</span>
+    <div className="relative z-30 w-16 shrink-0 h-full">
+      <nav className="group absolute inset-y-0 left-0 w-16 hover:w-56 transition-[width] duration-200 ease-out overflow-hidden bg-em-void/90 backdrop-blur-xl border-r border-white/6 flex flex-col py-4">
+        {/* brand */}
+        <div className="flex items-center gap-2.5 px-[18px] mb-6 h-11">
+          <div className="w-9 h-9 shrink-0 rounded-full grid place-items-center border-2 border-em-orange">
+            <span className="font-bold text-em-orange text-xs leading-none">TA</span>
+          </div>
+          <div className="leading-tight opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            <div className="font-semibold text-em-ink tracking-wide text-[13px]">TEMPLE ALLEN</div>
+            <div className="text-[8px] font-bold tracking-[0.2em] text-em-orange">INDUSTRY. BUILT SOLID.</div>
+          </div>
         </div>
-        <div className="leading-tight">
-          <div className="h-display font-bold text-em-ink tracking-wide text-[15px]">TEMPLE ALLEN</div>
-          <div className="text-[9px] font-bold tracking-[0.2em] text-em-orange">INDUSTRY. BUILT SOLID.</div>
-        </div>
-      </div>
 
-      <div className="flex flex-col gap-1">
-        {NAV.map((n) => {
-          const active = page === n.id;
-          return (
-            <button
-              key={n.id}
-              onClick={() => setPage(n.id)}
-              className={`btn group relative flex items-center gap-3 px-3.5 py-3 rounded-xl text-left ${
-                active
-                  ? 'bg-em-orange/15 text-em-orange border border-em-orange/30'
-                  : 'text-em-muted hover:text-em-ink hover:bg-white/5 border border-transparent'
-              }`}
-            >
-              <span>{n.icon}</span>
-              <span className="text-sm font-medium">{n.label}</span>
-              {n.id === 'diagnostics' && faultCount > 0 && (
-                <span className="ml-auto min-w-5 h-5 px-1 rounded-full bg-em-orange text-black text-[10px] font-bold grid place-items-center">
-                  {faultCount}
+        <div className="flex flex-col gap-1 px-2.5">
+          {NAV.map((n) => {
+            const active = page === n.id;
+            return (
+              <button
+                key={n.id}
+                onClick={() => setPage(n.id)}
+                title={n.label}
+                className={`btn relative flex items-center gap-3 h-11 px-[7px] rounded-lg ${
+                  active ? 'bg-em-orange/15 text-em-orange' : 'text-em-muted hover:text-em-ink hover:bg-white/5'
+                }`}
+              >
+                <span className="w-7 shrink-0 grid place-items-center">{n.icon}</span>
+                <span className="text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                  {n.label}
                 </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+                {n.id === 'diagnostics' && faultCount > 0 && (
+                  <span className="absolute left-7 top-1.5 min-w-4 h-4 px-1 rounded-full bg-em-orange text-black text-[9px] font-bold grid place-items-center group-hover:hidden">
+                    {faultCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
 
-      {/* system status */}
-      <div className="mt-auto glass-tight p-3.5">
-        <div className="text-sm font-semibold text-em-ink mb-1">System Status</div>
-        <div className="flex items-center gap-2 text-xs">
-          <span
-            className="w-2 h-2 rounded-full animate-pulse"
-            style={{ background: health === 'fault' ? '#ff5a5a' : health === 'warning' ? '#ffb020' : '#22c55e' }}
-          />
-          <span className="text-em-muted">
-            {health === 'fault' ? 'Fault active' : health === 'warning' ? 'Warnings present' : 'All Systems Operational'}
+        {/* status */}
+        <div className="mt-auto px-[18px] flex items-center gap-3 h-8">
+          <span className="w-2.5 h-2.5 shrink-0 rounded-full animate-pulse" style={{ background: hc }} />
+          <span className="text-xs text-em-muted opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            {health === 'fault' ? 'Fault active' : health === 'warning' ? 'Warnings' : 'All systems operational'}
           </span>
         </div>
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 }

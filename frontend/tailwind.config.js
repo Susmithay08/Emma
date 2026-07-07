@@ -33,9 +33,9 @@ export default {
         },
       },
       fontFamily: {
-        display: ['"Space Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+        display: ['Jost', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Jost', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['Jost', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
         glass: '0 12px 40px -8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',

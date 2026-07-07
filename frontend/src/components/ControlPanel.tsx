@@ -76,7 +76,7 @@ function Slider({
   );
 }
 
-export default function ControlPanel({ robot, compact }: { robot: Robot; compact?: boolean }) {
+export default function ControlPanel({ robot, compact, bare }: { robot: Robot; compact?: boolean; bare?: boolean }) {
   const debounced = useDebouncedControl();
   const [speed, setSpeed] = React.useState(robot.commandedSpeed);
   const [spray, setSpray] = React.useState(robot.sprayIntensity);
@@ -88,13 +88,8 @@ export default function ControlPanel({ robot, compact }: { robot: Robot; compact
   const estop = robot.status === 'estop';
   const criticalActive = robot.faults.some((f) => f.severity === 'critical');
 
-  return (
-    <div className={`glass edge-lit p-4 ${compact ? '' : ''}`}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="h-display text-sm font-bold uppercase tracking-widest text-em-ink">Controls</h3>
-        <span className="chip">Manual override</span>
-      </div>
-
+  const inner = (
+    <>
       <div className="grid grid-cols-2 gap-2 mb-2">
         {!running && !paused ? (
           <Btn onClick={() => startJob()} icon={<IconPlay size={24} />} label="Start Job" variant="primary" wide disabled={estop || criticalActive} />
@@ -112,9 +107,21 @@ export default function ControlPanel({ robot, compact }: { robot: Robot; compact
       </div>
 
       <div className="space-y-4 pt-3 border-t border-white/8">
-        <Slider label="Speed" value={speed} icon={<IconSpeed size={16} />} accent="#7ff2a8" onChange={(v) => { setSpeed(v); debounced('speed', v); }} />
-        <Slider label="Spray" value={spray} icon={<IconSpray size={16} />} accent="#86c8ff" onChange={(v) => { setSpray(v); debounced('spray', v); }} />
+        <Slider label="Speed" value={speed} icon={<IconSpeed size={16} />} accent="#ff6a1a" onChange={(v) => { setSpeed(v); debounced('speed', v); }} />
+        <Slider label="Spray" value={spray} icon={<IconSpray size={16} />} accent="#7cc4ff" onChange={(v) => { setSpray(v); debounced('spray', v); }} />
       </div>
+    </>
+  );
+
+  if (bare) return inner;
+
+  return (
+    <div className="glass edge-lit p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="h-display text-sm font-bold uppercase tracking-widest text-em-ink">Controls</h3>
+        <span className="chip">Manual override</span>
+      </div>
+      {inner}
     </div>
   );
 }
