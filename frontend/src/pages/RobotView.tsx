@@ -22,7 +22,7 @@ export default function RobotView({ tel }: { tel: Telemetry }) {
       {/* single side panel */}
       <aside className="w-80 shrink-0 glass overflow-y-auto flex flex-col">
         <Section title="Robot">
-          <div className="text-sm text-em-ink font-medium">EMMA-4X · Surface Prep</div>
+          <div className="text-sm text-em-ink font-medium">AVA-4X · Surface Prep</div>
           <div className="text-xs text-em-muted mb-2">{r.job.name}</div>
           <Row label="State" value={r.status.toUpperCase()} color={hc} />
           <Row label="Completion" value={r.job.completionPercent.toFixed(1)} unit="%" color="#ff6a1a" />

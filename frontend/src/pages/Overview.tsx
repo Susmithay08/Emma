@@ -58,7 +58,7 @@ export default function Overview({
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-semibold text-em-ink">Overview</h1>
-          <p className="text-sm text-em-muted">Live status of the EMMA-4X surface-prep cell</p>
+          <p className="text-sm text-em-muted">Live status of the AVA-4X surface-prep cell</p>
         </div>
         <button
           onClick={() => generateReport(tel, latency, settings.operatorName)}
@@ -114,14 +114,14 @@ export default function Overview({
             <button onClick={() => setPage('robot')} className="text-xs text-em-orange hover:underline">Open 3D →</button>
           </div>
           <button onClick={() => setPage('robot')} className="relative block w-full rounded-xl overflow-hidden h-[210px] border border-white/8 group text-left">
-            <img src="/emma-real.webp" alt="EMMA surface prep" className="absolute inset-0 w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform" />
+            <img src="/ava-real.webp" alt="AVA surface prep" className="absolute inset-0 w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/30" />
             <div className="absolute top-3 left-3 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               <span className="text-[11px] font-mono font-bold text-white">CAM-01 · LIVE</span>
             </div>
             <div className="absolute bottom-3 left-3 right-3">
-              <div className="text-sm font-semibold text-white">EMMA-4X · Surface Prep</div>
+              <div className="text-sm font-semibold text-white">AVA-4X · Surface Prep</div>
               <div className="text-[11px] text-white/70">{r.job.currentStep} · {r.job.completionPercent.toFixed(0)}% complete</div>
             </div>
           </button>
@@ -139,7 +139,7 @@ export default function Overview({
           <button onClick={() => setPage('robot')} className="w-full flex items-center gap-3 py-3 text-left">
             <span className="w-9 h-9 rounded-lg grid place-items-center text-em-orange" style={{ background: 'rgba(255,106,26,0.1)' }}>⛭</span>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-em-ink">EMMA-4X</div>
+              <div className="text-sm font-medium text-em-ink">AVA-4X</div>
               <div className="text-[11px] text-em-muted truncate">{r.job.name}</div>
             </div>
             <span className="text-[10px] font-bold uppercase" style={{ color: stateColor }}>{r.status}</span>

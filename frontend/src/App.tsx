@@ -77,7 +77,7 @@ function Console() {
           {!telemetry ? (
             <div className="h-full grid place-items-center text-em-muted gap-3">
               <div className="w-10 h-10 border-2 border-em-orange border-t-transparent rounded-full animate-spin" />
-              <span>Connecting to Temple Allen controller…</span>
+              <span>Connecting to RoboOps Console controller…</span>
             </div>
           ) : page === 'overview' ? (
             <Overview tel={telemetry} latency={latency} healthScore={healthScore} setPage={setPage} />

@@ -24,7 +24,7 @@ const Ctx = createContext<{
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings>(() => {
     try {
-      const saved = localStorage.getItem('emma-settings');
+      const saved = localStorage.getItem('roboops-settings');
       return saved ? { ...DEFAULTS, ...JSON.parse(saved) } : DEFAULTS;
     } catch {
       return DEFAULTS;
@@ -32,7 +32,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
-    localStorage.setItem('emma-settings', JSON.stringify(settings));
+    localStorage.setItem('roboops-settings', JSON.stringify(settings));
     document.documentElement.classList.toggle('dark', settings.theme === 'dark');
     document.documentElement.classList.toggle('light', settings.theme === 'light');
   }, [settings]);

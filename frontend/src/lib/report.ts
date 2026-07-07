@@ -16,7 +16,7 @@ export function generateReport(tel: Telemetry, latency: number, operator: string
   doc.setTextColor(20, 27, 38);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(22);
-  doc.text('EMMA Operator Console', 40, y);
+  doc.text('AVA Operator Console', 40, y);
   doc.setFontSize(11);
   doc.setTextColor(120, 120, 130);
   doc.setFont('helvetica', 'normal');
@@ -89,10 +89,10 @@ export function generateReport(tel: Telemetry, latency: number, operator: string
   doc.setTextColor(150, 150, 158);
   doc.setFontSize(9);
   doc.text(
-    'EMMA Operator Console v1.0.0 · Simulation build · LIVE = real host telemetry, SIM = physics-modelled',
+    'AVA Operator Console v1.0.0 · Simulation build · LIVE = real host telemetry, SIM = physics-modelled',
     40,
     doc.internal.pageSize.getHeight() - 30
   );
 
-  doc.save(`EMMA-session-report-${Date.now()}.pdf`);
+  doc.save(`AVA-session-report-${Date.now()}.pdf`);
 }

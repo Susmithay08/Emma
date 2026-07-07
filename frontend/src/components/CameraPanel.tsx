@@ -2,7 +2,7 @@ import React from 'react';
 import type { Robot } from '../lib/types';
 import CamScene from './CamScene';
 
-// Surface-prep "camera": a live 3D view of EMMA stripping the panel, with HUD
+// Surface-prep "camera": a live 3D view of AVA stripping the panel, with HUD
 // overlays for task, obstacles and safety state.
 export default function CameraPanel({ robot, animationSpeed }: { robot: Robot; animationSpeed: number }) {
   const estop = robot.status === 'estop';

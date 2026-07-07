@@ -1,7 +1,9 @@
-// server.js — Express REST + WebSocket live telemetry for EMMA Operator Console
+// server.js — Express REST + WebSocket live telemetry for AVA Operator Console
 import express from 'express';
 import cors from 'cors';
 import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import {
   createInitialState,
@@ -35,7 +37,7 @@ function log(evt) {
   if (history.length > 500) history.pop();
   return entry;
 }
-log({ category: 'System', severity: 'info', message: 'EMMA control server initialised.' });
+log({ category: 'System', severity: 'info', message: 'AVA control server initialised.' });
 log({ category: 'Auth', severity: 'info', message: 'Operator session ready.' });
 
 // ---- Diagnostics history for charts (real system metrics over time) -----
@@ -171,6 +173,18 @@ app.post('/api/login', (req, res) => {
   res.json({ ok: true, operator, token: 'sim-' + Date.now() });
 });
 
+// ---- Serve the built frontend (production / Render) ----------------------
+// The backend hosts the SPA on the same origin, so the client's relative /api
+// calls and same-host WebSocket work without any extra config.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const clientDir = path.resolve(__dirname, '../../frontend/dist');
+app.use(express.static(clientDir));
+app.get(/^(?!\/api|\/ws).*/, (_req, res) => {
+  res.sendFile(path.join(clientDir, 'index.html'), (err) => {
+    if (err) res.status(404).send('Frontend not built. Run: npm --prefix frontend run build');
+  });
+});
+
 // ---- HTTP + WebSocket ----------------------------------------------------
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
@@ -214,6 +228,6 @@ setInterval(() => {
 }, 1000);
 
 server.listen(PORT, () => {
-  console.log(`\n  EMMA control server → http://localhost:${PORT}`);
+  console.log(`\n  AVA control server → http://localhost:${PORT}`);
   console.log(`  WebSocket telemetry → ws://localhost:${PORT}/ws\n`);
 });

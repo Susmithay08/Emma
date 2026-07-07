@@ -46,7 +46,7 @@ export default function History() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search events…"
-          className="bg-steel-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-emma-orange focus:outline-none w-52"
+          className="bg-steel-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-ava-orange focus:outline-none w-52"
         />
         <select
           value={category}

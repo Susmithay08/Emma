@@ -31,11 +31,11 @@ export default function Sidebar({
         {/* brand */}
         <div className="flex items-center gap-2.5 px-[18px] mb-6 h-11">
           <div className="w-9 h-9 shrink-0 rounded-full grid place-items-center border-2 border-em-orange">
-            <span className="font-bold text-em-orange text-xs leading-none">TA</span>
+            <span className="font-bold text-em-orange text-xs leading-none">RO</span>
           </div>
           <div className="leading-tight opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-            <div className="font-semibold text-em-ink tracking-wide text-[13px]">TEMPLE ALLEN</div>
-            <div className="text-[8px] font-bold tracking-[0.2em] text-em-orange">INDUSTRY. BUILT SOLID.</div>
+            <div className="font-semibold text-em-ink tracking-wide text-[13px]">ROBOOPS</div>
+            <div className="text-[8px] font-bold tracking-[0.2em] text-em-orange">ROBOTIC OPERATIONS</div>
           </div>
         </div>
 

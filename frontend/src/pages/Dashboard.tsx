@@ -25,7 +25,7 @@ export default function Dashboard({ tel, latency, conn }: { tel: Telemetry; late
       <div className="relative flex-1 rounded-xl overflow-hidden border border-white/6 bg-black/20">
         <RobotScene robot={r} animationSpeed={settings.animationSpeed} />
         <div className="absolute top-4 left-5 text-[10px] uppercase tracking-[0.25em] text-em-muted">
-          EMMA-4X · Live View
+          AVA-4X · Live View
         </div>
         <div className="absolute bottom-0 inset-x-0 p-5 bg-gradient-to-t from-black/75 via-black/30 to-transparent pointer-events-none">
           <div className="flex items-center gap-3">

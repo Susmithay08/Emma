@@ -32,8 +32,17 @@ export default function Login({ onLogin }: { onLogin: (operator: string) => void
     <div className="h-full w-full flex bg-em-void overflow-hidden">
       {/* Left: brand hero image (robot + logo stay framed) */}
       <div className="relative flex-1 hidden md:block">
-        <img src="/login.png" alt="Temple Allen" className="absolute inset-0 w-full h-full object-cover object-left" />
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-em-void" />
+        <img src="/ava-real.webp" alt="RoboOps Console — AVA" className="absolute inset-0 w-full h-full object-cover object-center" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-em-void" />
+        <div className="absolute top-8 left-8 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full grid place-items-center border-2 border-em-orange">
+            <span className="font-bold text-em-orange text-sm">RO</span>
+          </div>
+          <div className="leading-tight">
+            <div className="font-semibold text-white tracking-wide">ROBOOPS</div>
+            <div className="text-[9px] font-bold tracking-[0.2em] text-em-orange">ROBOTIC OPERATIONS</div>
+          </div>
+        </div>
       </div>
 
       {/* Right: sign-in column */}

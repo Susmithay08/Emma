@@ -1,5 +1,5 @@
 // simulation.js
-// Physically-coherent model of the EMMA robotic surface-prep cell.
+// Physically-coherent model of the AVA robotic surface-prep cell.
 // This is a SIMULATION (no hardware attached) but values are derived from a
 // consistent physical model — not Math.random() noise. Relationships:
 //   - motor load is driven by commanded speed + spray intensity + surface drag

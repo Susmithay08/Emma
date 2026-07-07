@@ -1,11 +1,11 @@
-# Temple Allen — EMMA Operator Console
+# RoboOps Console — AVA Operator Console
 
-A production-quality full-stack HMI (Human-Machine Interface) for **EMMA** — an
+A production-quality full-stack HMI (Human-Machine Interface) for **AVA** — an
 industrial robotic surface-preparation system (aerospace, marine, transportation,
 manufacturing).
 
 Built with **React + TypeScript + Tailwind + React Three Fiber** (frontend) and
-**Node.js + Express + WebSocket** (backend). Dark, orange-on-black Temple Allen
+**Node.js + Express + WebSocket** (backend). Dark, orange-on-black RoboOps Console
 theme, Jost typography. Works immediately — no hardware required.
 
 ---
@@ -55,7 +55,7 @@ npm run build            # production build of the frontend
 ## Pages
 
 - **Overview** — real-data control room: KPIs (robot state, job completion,
-  system-health score, active alerts), a live performance chart, the EMMA camera
+  system-health score, active alerts), a live performance chart, the AVA camera
   feed, real subsystem health, and real alarms with working acknowledge. Every
   tile navigates; **Export** downloads a PDF session report.
 - **Live View** — immersive 3D articulated arm (rotate / zoom / pan) with the
@@ -112,5 +112,5 @@ emma-console/
 
 > The 3D robots are built procedurally with React Three Fiber; the `Robots`
 > scene uses 2-link inverse kinematics so the tool tip lands exactly on the
-> work surface. `login.png` and `image1.webp` (the real EMMA photo) are the only
+> work surface. `login.png` and `image1.webp` (the real AVA photo) are the only
 > bundled image assets.

@@ -1,6 +1,6 @@
 import type { Robot } from './types';
 
-// Plain-language sentence explaining what EMMA is doing right now.
+// Plain-language sentence explaining what AVA is doing right now.
 export function describeActivity(r: Robot): { headline: string; detail: string } {
   const clearing = r.obstacles.find((o) => o.state === 'clearing');
   const pct = r.job.completionPercent.toFixed(0);
@@ -13,7 +13,7 @@ export function describeActivity(r: Robot): { headline: string; detail: string }
   if (clearing)
     return {
       headline: `Something is in the way — moving the ${clearing.type} aside`,
-      detail: 'EMMA paused painting, is clearing the object, then it will carry on.',
+      detail: 'AVA paused painting, is clearing the object, then it will carry on.',
     };
   if (r.status === 'paused')
     return { headline: 'Paused by operator', detail: `Job held at ${pct}%. Press Resume to continue.` };

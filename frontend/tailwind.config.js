@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Temple Allen — orange on near-black. `mint`/`lime`/`deep` keep their
+        // RoboOps Console — orange on near-black. `mint`/`lime`/`deep` keep their
         // names (used app-wide) but now hold orange values = brand accent.
         em: {
           void: '#08090b',
@@ -22,7 +22,7 @@ export default {
           ink: '#eceef2',
           muted: '#8b909a',
         },
-        emma: { orange: '#ff6a1a', amber: '#ffb020' },
+        ava: { orange: '#ff6a1a', amber: '#ffb020' },
         steel: {
           950: '#08090b',
           900: '#0d0f12',

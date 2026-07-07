@@ -1,0 +1,13 @@
+# Render blueprint — one web service that builds the frontend and serves it
+# from the Express/WebSocket backend (single origin, WebSockets supported).
+services:
+  - type: web
+    name: roboops-console
+    runtime: node
+    plan: free
+    autoDeploy: true
+    buildCommand: npm --prefix backend install && npm --prefix frontend install --include=dev && npm --prefix frontend run build
+    startCommand: node backend/src/server.js
+    envVars:
+      - key: NODE_VERSION
+        value: "20"

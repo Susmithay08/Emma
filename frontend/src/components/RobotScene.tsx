@@ -130,7 +130,7 @@ function Scene({ robot, animationSpeed }: { robot: Robot; animationSpeed: number
         <Html position={[1.7, 2.4, 0]} distanceFactor={9} occlude={false}>
           <div className="whitespace-nowrap flex items-center gap-2 rounded-full bg-black/70 backdrop-blur px-3 py-1.5 border border-white/10">
             <span className="w-2.5 h-2.5 rounded-sm" style={{ background: palette.glow, boxShadow: `0 0 10px ${palette.glow}` }} />
-            <span className="text-white font-semibold text-sm h-display">EMMA-4X</span>
+            <span className="text-white font-semibold text-sm h-display">AVA-4X</span>
             <span className="font-mono text-sm" style={{ color: palette.ring }}>
               {robot.job.completionPercent.toFixed(0)}%
             </span>
