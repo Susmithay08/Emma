@@ -78,8 +78,6 @@ function ArmRig({ robotRef, animationSpeed, carry }: { robotRef: React.MutableRe
   const elbow = useRef<THREE.Group>(null!);
   const wrist = useRef<THREE.Group>(null!);
   const tip = useRef<THREE.Object3D>(null!);
-  const spray = useRef<THREE.Mesh>(null!);
-  const sprayMat = useRef<THREE.MeshBasicMaterial>(null!);
   const target = useRef(new THREE.Vector3(-HALF, PANEL_Y, 0.16));
   const baseX = useRef(-HALF);
   const clock = useRef(0);
@@ -154,10 +152,6 @@ function ArmRig({ robotRef, animationSpeed, carry }: { robotRef: React.MutableRe
         carry.current.id = -1;
       }
     }
-
-    const painting = running && !clearingOb;
-    if (spray.current) spray.current.visible = painting;
-    if (sprayMat.current) sprayMat.current.opacity = painting ? 0.12 + (r.sprayIntensity / 100) * 0.28 : 0;
   });
 
   const steel = <meshStandardMaterial color="#e9eef0" metalness={0.7} roughness={0.32} />;
@@ -206,13 +200,48 @@ function ArmRig({ robotRef, animationSpeed, carry }: { robotRef: React.MutableRe
               {accent}
             </mesh>
             <object3D ref={tip} position={[0, TOOL, 0]} />
-            <mesh ref={spray} position={[0, TOOL + 0.28, 0]} rotation={[Math.PI, 0, 0]}>
-              <coneGeometry args={[0.24, 0.6, 20, 1, true]} />
-              <meshBasicMaterial ref={sprayMat} color="#86c8ff" transparent opacity={0.2} side={THREE.DoubleSide} depthWrite={false} />
-            </mesh>
           </group>
         </group>
       </group>
+    </group>
+  );
+}
+
+// Spray + contact glow, anchored to the panel surface at the working edge so it
+// always lands ON the wall (never pokes through), regardless of arm pose.
+function Spray({ robotRef }: { robotRef: React.MutableRefObject<Robot> }) {
+  const grp = useRef<THREE.Group>(null!);
+  const coneMat = useRef<THREE.MeshBasicMaterial>(null!);
+  const spotMat = useRef<THREE.MeshBasicMaterial>(null!);
+  const clock = useRef(0);
+  useFrame((_, d) => {
+    const r = robotRef.current;
+    clock.current += d;
+    const painting = r.status === 'running' && !r.obstacles.some((o) => o.state === 'clearing');
+    const frac = r.job.completionPercent / 100;
+    const edgeX = -HALF + frac * PANEL_W;
+    const wob = painting ? Math.sin(clock.current * 3) * 0.12 : 0;
+    if (grp.current) {
+      grp.current.position.x = edgeX;
+      grp.current.position.y = PANEL_Y + wob;
+      grp.current.visible = painting;
+    }
+    const inten = 0.14 + (r.sprayIntensity / 100) * 0.32;
+    if (coneMat.current) coneMat.current.opacity = inten;
+    if (spotMat.current) spotMat.current.opacity = inten + 0.1;
+  });
+  return (
+    <group ref={grp} position={[-HALF, PANEL_Y, 0.11]}>
+      {/* cone: wide base on the wall, narrow toward the nozzle (camera side) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0.2]}>
+        <coneGeometry args={[0.18, 0.38, 20, 1, true]} />
+        <meshBasicMaterial ref={coneMat} color="#86c8ff" transparent opacity={0.28} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+      {/* glowing contact patch on the surface */}
+      <mesh position={[0, 0, 0.02]}>
+        <circleGeometry args={[0.16, 24]} />
+        <meshBasicMaterial ref={spotMat} color="#bfe3ff" transparent opacity={0.35} depthWrite={false} />
+      </mesh>
     </group>
   );
 }
@@ -281,6 +310,7 @@ function Scene({ robotRef, animationSpeed }: { robotRef: React.MutableRefObject<
       <Panel robotRef={robotRef} />
       <Track />
       <ArmRig robotRef={robotRef} animationSpeed={animationSpeed} carry={carry} />
+      <Spray robotRef={robotRef} />
       <Obstacles robotRef={robotRef} carry={carry} />
       <ContactShadows position={[0, FLOOR_Y, 0]} opacity={0.45} scale={16} blur={2.5} far={4} />
       <Grid position={[0, FLOOR_Y, 0]} args={[30, 20]} cellSize={0.6} cellColor="#173026" sectionSize={3} sectionColor="#2f6b4a" fadeDistance={22} infiniteGrid />
