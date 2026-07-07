@@ -24,6 +24,21 @@ function sensorNoise(seed, amp) {
   return (Math.sin(seed * 0.7) + Math.sin(seed * 1.31 + 1.7)) * 0.5 * amp;
 }
 
+// Persistent obstacles that sit on the work surface at fixed spots. The robot
+// meets them as it advances and clears each one before continuing.
+function makeObstacles() {
+  return [
+    { id: 1, atPercent: 26, type: 'crate', state: 'ahead' },
+    { id: 2, atPercent: 54, type: 'toolbox', state: 'ahead' },
+    { id: 3, atPercent: 79, type: 'cone', state: 'ahead' },
+  ];
+}
+
+export function resetObstacles(state) {
+  state.obstacles = makeObstacles();
+  state.clearing = null;
+}
+
 export function createInitialState() {
   return {
     status: 'idle', // idle | running | paused | estop | returning | homing
@@ -58,7 +73,8 @@ export function createInitialState() {
       stepIndex: 0,
     },
     faults: [],
-    obstacles: [],
+    obstacles: makeObstacles(),
+    clearing: null, // { id, ticksLeft } while pushing an obstacle aside
     tick: 0,
     uptimeSec: 0,
     lastStartedAt: null,
@@ -237,8 +253,46 @@ export function step(state, log) {
     }
   }
 
+  // ---- Obstacle detection & clearing -----------------------------------
+  // While painting, the robot watches the path ahead. When it reaches an
+  // obstacle it stops painting, spends a few ticks pushing it aside, then
+  // resumes. Coverage is frozen for the duration.
+  if (running) {
+    if (state.clearing) {
+      state.clearing.ticksLeft--;
+      const ob = state.obstacles.find((o) => o.id === state.clearing.id);
+      if (ob) ob.state = 'clearing';
+      if (state.clearing.ticksLeft <= 0) {
+        if (ob) ob.state = 'cleared';
+        state.clearing = null;
+        state.job.currentStep = 'Path clear — resuming surface prep';
+        log?.({
+          category: 'Motion',
+          severity: 'success',
+          message: `Obstacle moved aside (${ob?.type}). Resuming.`,
+        });
+      } else {
+        state.job.currentStep = 'Obstacle detected — moving aside';
+      }
+    } else {
+      const blocking = state.obstacles.find(
+        (o) => o.state !== 'cleared' && state.job.completionPercent >= o.atPercent - 0.5
+      );
+      if (blocking) {
+        state.clearing = { id: blocking.id, ticksLeft: 4 };
+        blocking.state = 'clearing';
+        state.job.currentStep = 'Obstacle detected — moving aside';
+        log?.({
+          category: 'Safety',
+          severity: 'warning',
+          message: `Obstacle detected at ${blocking.atPercent}% (${blocking.type}) — clearing path.`,
+        });
+      }
+    }
+  }
+
   // ---- Job progress: integrate coverage over surface area ---------------
-  if (running && !hasCriticalFault) {
+  if (running && !hasCriticalFault && !state.clearing) {
     const coverageRate = speedFrac * (0.6 + 0.4 * sprayFrac) * 0.12; // m²/s
     state.job.completedM2 = clamp(
       state.job.completedM2 + coverageRate,
@@ -279,21 +333,9 @@ export function step(state, log) {
 
   // ---- Rare stochastic hardware events (realistic MTBF) ----------------
   if (running) {
-    if (Math.random() < 0.004) raiseFault(state, 'OBSTACLE', log);
     if (Math.random() < 0.0015) raiseFault(state, 'CAMERA_OFFLINE', log);
     if (Math.random() < 0.001) raiseFault(state, 'COMMS_LOST', log);
   }
-
-  // Obstacles list for camera overlay (transient)
-  if (Math.random() < 0.02 && state.obstacles.length < 3 && running) {
-    state.obstacles.push({
-      id: Date.now(),
-      x: 15 + Math.random() * 70,
-      y: 20 + Math.random() * 55,
-      ttl: 3 + Math.floor(Math.random() * 4),
-    });
-  }
-  state.obstacles = state.obstacles.filter((o) => (o.ttl -= 1) > 0);
 
   // ---- Health rollup ---------------------------------------------------
   const active = state.faults.filter((f) => !f.cleared);
@@ -316,6 +358,7 @@ export function applyControl(state, action, log) {
         state.job.completedM2 = 0;
         state.job.completionPercent = 0;
         state.job.stepIndex = 1;
+        resetObstacles(state);
       }
       state.status = 'running';
       state.lastStartedAt = Date.now();

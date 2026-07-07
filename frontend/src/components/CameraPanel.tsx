@@ -1,112 +1,71 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import type { Robot } from '../lib/types';
+import React, { useRef, useEffect } from 'react';
+import type { Robot, Obstacle } from '../lib/types';
 
-type Source = 'robot' | 'internet' | 'webcam';
-
-// Convert a YouTube / generic URL into an embeddable iframe src.
-function toEmbed(url: string): string {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes('youtube.com')) {
-      const id = u.searchParams.get('v');
-      if (id) return `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&playsinline=1`;
-      if (u.pathname.startsWith('/embed/')) return url;
-      if (u.pathname.startsWith('/live/'))
-        return `https://www.youtube.com/embed/${u.pathname.split('/')[2]}?autoplay=1&mute=1&playsinline=1`;
-    }
-    if (u.hostname === 'youtu.be')
-      return `https://www.youtube.com/embed/${u.pathname.slice(1)}?autoplay=1&mute=1&playsinline=1`;
-    return url; // assume already embeddable
-  } catch {
-    return url;
+// Draw a recognizable object (obstacle) centered at (x, y).
+function drawObject(ctx: CanvasRenderingContext2D, type: Obstacle['type'], x: number, y: number, s: number, alpha: number) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  if (type === 'crate') {
+    const w = 34 * s,
+      h = 28 * s;
+    ctx.fillStyle = '#8a5a2b';
+    ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.strokeStyle = '#5c3a17';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-w / 2, -h / 2, w, h);
+    ctx.beginPath();
+    ctx.moveTo(-w / 2, -h / 2);
+    ctx.lineTo(w / 2, h / 2);
+    ctx.moveTo(w / 2, -h / 2);
+    ctx.lineTo(-w / 2, h / 2);
+    ctx.stroke();
+  } else if (type === 'toolbox') {
+    const w = 34 * s,
+      h = 22 * s;
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.strokeStyle = '#7d2318';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-w / 2, -h / 2, w, h);
+    // handle
+    ctx.beginPath();
+    ctx.moveTo(-8 * s, -h / 2);
+    ctx.lineTo(-8 * s, -h / 2 - 8 * s);
+    ctx.lineTo(8 * s, -h / 2 - 8 * s);
+    ctx.lineTo(8 * s, -h / 2);
+    ctx.stroke();
+  } else {
+    // cone
+    const w = 30 * s,
+      h = 34 * s;
+    ctx.fillStyle = '#ff7a1a';
+    ctx.beginPath();
+    ctx.moveTo(0, -h / 2);
+    ctx.lineTo(w / 2, h / 2);
+    ctx.lineTo(-w / 2, h / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(-w / 3, -2 * s, (w * 2) / 3, 6 * s);
+    ctx.fillStyle = '#c85a10';
+    ctx.fillRect(-w / 2 - 3 * s, h / 2, w + 6 * s, 5 * s);
   }
+  ctx.restore();
 }
 
-// A default 24/7 live industrial stream (editable). Ships muted + autoplay.
-const DEFAULT_STREAM = 'https://www.youtube.com/watch?v=DHUnz4dyb54'; // Port of Rotterdam live cam
-
-// Camera panel with three switchable sources:
-//   • EMMA Robot  — a drawn side-view of the robot performing surface prep (SIM)
-//   • Internet Cam — a genuine live web stream (LIVE, editable URL)
-//   • My Webcam   — the local device camera (LIVE)
+// EMMA robot working view: a side view of the arm stripping an aircraft panel.
+// The panel changes from corroded → clean as the job progresses, and the robot
+// detects obstacles, pushes them aside, then continues.
 export default function CameraPanel({ robot, animationSpeed }: { robot: Robot; animationSpeed: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const robotRef = useRef(robot);
   robotRef.current = robot;
   const rafRef = useRef<number>();
   const particles = useRef<{ x: number; y: number; vx: number; vy: number; life: number }[]>([]);
   const armPhaseRef = useRef(0);
+  const clearAnim = useRef<{ id: number; t: number }>({ id: -1, t: 0 });
 
-  const [source, setSource] = useState<Source>('robot');
-  const sourceRef = useRef<Source>('robot');
-  sourceRef.current = source;
-  const [error, setError] = useState<string | null>(null);
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [deviceId, setDeviceId] = useState<string | undefined>(undefined);
-  const [streamUrl, setStreamUrl] = useState(DEFAULT_STREAM);
-  const [embedUrl, setEmbedUrl] = useState(toEmbed(DEFAULT_STREAM));
-
-  const stopStream = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-  }, []);
-
-  const startCamera = useCallback(
-    async (id?: string) => {
-      setError(null);
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setError('Camera API not available in this browser context.');
-        return false;
-      }
-      try {
-        stopStream();
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: id ? { deviceId: { exact: id } } : true,
-          audio: false,
-        });
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play().catch(() => {});
-        }
-        const list = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
-        setDevices(list);
-        setDeviceId(stream.getVideoTracks()[0]?.getSettings().deviceId || id);
-        return true;
-      } catch (e: any) {
-        setError(
-          e?.name === 'NotAllowedError'
-            ? 'Camera permission denied.'
-            : e?.name === 'NotFoundError'
-            ? 'No camera found on this device.'
-            : `Camera unavailable (${e?.name || 'error'}).`
-        );
-        return false;
-      }
-    },
-    [stopStream]
-  );
-
-  const selectSource = useCallback(
-    async (s: Source) => {
-      setError(null);
-      if (s === 'webcam') {
-        const ok = await startCamera();
-        if (!ok) return; // stay on current source if camera failed
-      } else {
-        stopStream();
-      }
-      setSource(s);
-    },
-    [startCamera, stopStream]
-  );
-
-  useEffect(() => () => stopStream(), [stopStream]);
-
-  // ---- Canvas renderer: drawn EMMA robot + HUD -------------------------
   useEffect(() => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext('2d')!;
@@ -123,26 +82,30 @@ export default function CameraPanel({ robot, animationSpeed }: { robot: Robot; a
 
     const draw = () => {
       rafRef.current = requestAnimationFrame(draw);
-      if (sourceRef.current !== 'robot') {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        return;
-      }
       const r = robotRef.current;
       const w = canvas.width / devicePixelRatio;
       const h = canvas.height / devicePixelRatio;
-      // Arm animates ONLY while genuinely running — pause/idle/estop freeze it.
-      const running = r.status === 'running';
-      if (running) armPhaseRef.current += 0.05 * animationSpeed;
-      const phase = armPhaseRef.current;
       const hc = r.health === 'fault' ? '#ef4444' : r.health === 'warning' ? '#f59e0b' : '#22c55e';
 
-      // Background: workshop
+      const clearingOb = r.obstacles.find((o) => o.state === 'clearing');
+      const painting = r.status === 'running' && !clearingOb;
+      if (r.status === 'running') armPhaseRef.current += 0.05 * animationSpeed;
+      const phase = armPhaseRef.current;
+
+      // clearing animation timer
+      if (clearingOb) {
+        if (clearAnim.current.id !== clearingOb.id) clearAnim.current = { id: clearingOb.id, t: 0 };
+        clearAnim.current.t += 0.03 * animationSpeed;
+      } else {
+        clearAnim.current = { id: -1, t: 0 };
+      }
+
+      // ---- Background ----
       const bg = ctx.createLinearGradient(0, 0, 0, h);
       bg.addColorStop(0, '#10161f');
       bg.addColorStop(1, '#080b11');
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
-      // faint back wall grid
       ctx.strokeStyle = 'rgba(255,107,26,0.06)';
       ctx.lineWidth = 1;
       for (let x = 0; x < w; x += 42) {
@@ -151,8 +114,7 @@ export default function CameraPanel({ robot, animationSpeed }: { robot: Robot; a
         ctx.lineTo(x, h);
         ctx.stroke();
       }
-      // floor
-      const floorY = h * 0.86;
+      const floorY = h * 0.88;
       ctx.fillStyle = '#0c1119';
       ctx.fillRect(0, floorY, w, h - floorY);
       ctx.strokeStyle = 'rgba(255,255,255,0.06)';
@@ -164,28 +126,27 @@ export default function CameraPanel({ robot, animationSpeed }: { robot: Robot; a
       // ---- Work surface (aircraft panel) ----
       const pL = w * 0.1,
         pR = w * 0.9,
-        pT = h * 0.5,
-        pB = h * 0.78;
+        pT = h * 0.46,
+        pB = h * 0.72;
       const pW = pR - pL;
       const frontier = pL + (r.job.completionPercent / 100) * pW;
-      // uncoated (old coating) — right of frontier
+      // uncoated (old coating)
       ctx.fillStyle = '#3b3326';
       ctx.fillRect(pL, pT, pW, pB - pT);
-      // corrosion speckle on uncoated part
       ctx.fillStyle = 'rgba(120,90,40,0.5)';
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 50; i++) {
         const sx = frontier + Math.random() * (pR - frontier);
         if (sx > pR || sx < pL) continue;
         ctx.fillRect(sx, pT + Math.random() * (pB - pT), 2, 2);
       }
-      // cleaned/prepared — left of frontier (bright metal)
+      // cleaned metal
       const mg = ctx.createLinearGradient(0, pT, 0, pB);
       mg.addColorStop(0, '#9fb4c9');
       mg.addColorStop(0.5, '#c7d6e6');
       mg.addColorStop(1, '#7d90a6');
       ctx.fillStyle = mg;
       ctx.fillRect(pL, pT, frontier - pL, pB - pT);
-      // panel rivets
+      // rivets
       ctx.fillStyle = 'rgba(0,0,0,0.25)';
       for (let x = pL + 14; x < pR; x += 28) {
         ctx.beginPath();
@@ -193,12 +154,10 @@ export default function CameraPanel({ robot, animationSpeed }: { robot: Robot; a
         ctx.arc(x, pB - 8, 2, 0, 7);
         ctx.fill();
       }
-      // panel border
       ctx.strokeStyle = 'rgba(255,255,255,0.15)';
       ctx.lineWidth = 2;
       ctx.strokeRect(pL, pT, pW, pB - pT);
-      // active working edge line
-      if (running) {
+      if (painting) {
         ctx.strokeStyle = hc;
         ctx.lineWidth = 3;
         ctx.beginPath();
@@ -207,26 +166,59 @@ export default function CameraPanel({ robot, animationSpeed }: { robot: Robot; a
         ctx.stroke();
       }
 
+      // ---- Obstacles (drawn as real objects) ----
+      const panelMidY = (pT + pB) / 2;
+      r.obstacles.forEach((o) => {
+        const ox = pL + (o.atPercent / 100) * pW;
+        if (o.state === 'cleared') {
+          // moved aside → sitting on the floor below, faded
+          drawObject(ctx, o.type, ox, floorY - 16, 0.8, 0.75);
+          ctx.fillStyle = '#22c55e';
+          ctx.font = 'bold 12px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('✓', ox, floorY - 40);
+          ctx.textAlign = 'left';
+        } else if (o.state === 'clearing') {
+          // shake, then slide down toward the floor as it's pushed aside
+          const t = clearAnim.current.t;
+          const shake = Math.sin(t * 22) * 4 * Math.max(0, 1 - t);
+          const slide = Math.min(1, Math.max(0, (t - 0.6) / 1.2));
+          const oy = panelMidY + slide * (floorY - 16 - panelMidY);
+          drawObject(ctx, o.type, ox + shake, oy, 1, 1);
+          // warning ring
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([5, 4]);
+          ctx.strokeRect(ox - 26, oy - 24, 52, 48);
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#f59e0b';
+          ctx.font = 'bold 10px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('MOVING ASIDE', ox, oy - 32);
+          ctx.textAlign = 'left';
+        } else {
+          // ahead — sitting on the panel in the robot's path
+          drawObject(ctx, o.type, ox, panelMidY, 1, 1);
+        }
+      });
+
       // ---- Overhead gantry rail ----
-      const railY = h * 0.1;
+      const railY = h * 0.09;
       ctx.fillStyle = '#2a3444';
       ctx.fillRect(0, railY - 6, w, 12);
       ctx.fillStyle = '#1a2331';
       for (let x = 10; x < w; x += 60) ctx.fillRect(x, railY - 6, 6, 12);
 
-      // ---- Carriage + arm following the frontier ----
-      const jitter = running ? Math.sin(phase * 6) * 3 : 0;
-      const cx = Math.max(pL, Math.min(pR, frontier));
-      // carriage
-      ctx.fillStyle = '#374357';
-      ctx.fillRect(cx - 22, railY - 2, 44, 20);
-      ctx.fillStyle = hc;
-      ctx.fillRect(cx - 22, railY + 14, 44, 4);
-      // arm segments (elbow bends with joint angle for life)
-      const elbowX = cx + Math.sin((r.joints[1] || 0) + phase) * 18;
+      // ---- Carriage + arm ----
+      // When clearing, the arm leans toward the obstacle to push it.
+      const clearingX = clearingOb ? pL + (clearingOb.atPercent / 100) * pW : frontier;
+      const cx = Math.max(pL, Math.min(pR, clearingOb ? clearingX : frontier));
+      const jitter = painting ? Math.sin(phase * 6) * 3 : 0;
+      const push = clearingOb ? Math.sin(clearAnim.current.t * 10) * 6 : 0;
+      const elbowX = cx + (clearingOb ? push : Math.sin((r.joints[1] || 0) + phase) * 18);
       const elbowY = (railY + pT) / 2;
-      const nozX = cx;
-      const nozY = pT - 6 + jitter;
+      const nozX = cx + (clearingOb ? push : 0);
+      const nozY = (clearingOb ? panelMidY - 10 : pT - 6) + jitter;
       ctx.lineCap = 'round';
       ctx.strokeStyle = '#48566b';
       ctx.lineWidth = 10;
@@ -235,7 +227,6 @@ export default function CameraPanel({ robot, animationSpeed }: { robot: Robot; a
       ctx.lineTo(elbowX, elbowY);
       ctx.lineTo(nozX, nozY);
       ctx.stroke();
-      // joints
       ctx.fillStyle = hc;
       [
         [cx, railY + 16],
@@ -245,6 +236,11 @@ export default function CameraPanel({ robot, animationSpeed }: { robot: Robot; a
         ctx.arc(jx, jy, 6, 0, 7);
         ctx.fill();
       });
+      // carriage
+      ctx.fillStyle = '#374357';
+      ctx.fillRect(cx - 22, railY - 2, 44, 20);
+      ctx.fillStyle = hc;
+      ctx.fillRect(cx - 22, railY + 14, 44, 4);
       // nozzle head
       ctx.fillStyle = '#1a2331';
       ctx.beginPath();
@@ -254,8 +250,8 @@ export default function CameraPanel({ robot, animationSpeed }: { robot: Robot; a
       ctx.closePath();
       ctx.fill();
 
-      // ---- Spray + particles ----
-      if (running) {
+      // ---- Spray + particles (only while actually painting) ----
+      if (painting) {
         const inten = r.sprayIntensity / 100;
         ctx.fillStyle = `rgba(120,200,255,${0.06 + inten * 0.12})`;
         ctx.beginPath();
@@ -284,30 +280,16 @@ export default function CameraPanel({ robot, animationSpeed }: { robot: Robot; a
         ctx.fillRect(p.x, p.y, 2, 2);
       });
 
-      // ---- Obstacles ----
-      r.obstacles.forEach((o) => {
-        const ox = pL + (o.x / 100) * pW;
-        const oy = pT + (o.y / 100) * (pB - pT);
-        ctx.strokeStyle = '#f59e0b';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 4]);
-        ctx.strokeRect(ox - 16, oy - 16, 32, 32);
-        ctx.setLineDash([]);
-        ctx.fillStyle = '#f59e0b';
-        ctx.font = 'bold 9px monospace';
-        ctx.fillText('OBSTACLE', ox - 18, oy - 20);
-      });
-
-      // status hint
+      // ---- Status hints ----
       ctx.textAlign = 'center';
       if (r.status === 'idle') {
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.font = '12px monospace';
-        ctx.fillText('▸ Press START JOB to begin surface preparation', w / 2, h * 0.3);
+        ctx.fillText('▸ Press START JOB to begin surface preparation', w / 2, h * 0.28);
       } else if (r.status === 'paused') {
         ctx.fillStyle = 'rgba(245,158,11,0.9)';
         ctx.font = 'bold 20px monospace';
-        ctx.fillText('❚❚ PAUSED', w / 2, h * 0.3);
+        ctx.fillText('❚❚ PAUSED', w / 2, h * 0.28);
       }
       ctx.textAlign = 'left';
     };
@@ -319,66 +301,23 @@ export default function CameraPanel({ robot, animationSpeed }: { robot: Robot; a
   }, [animationSpeed]);
 
   const estop = robot.status === 'estop';
-  const isLive = source !== 'robot';
-  const badge =
-    source === 'internet' ? 'CAM-NET • LIVE' : source === 'webcam' ? 'CAM-01 • LIVE' : 'CAM-01 • SIM';
+  const clearing = robot.obstacles.some((o) => o.state === 'clearing');
 
   return (
     <div className="glass p-0 overflow-hidden relative h-full">
-      {/* Internet stream */}
-      {source === 'internet' && (
-        <iframe
-          key={embedUrl}
-          src={embedUrl}
-          className="absolute inset-0 w-full h-full"
-          allow="autoplay; encrypted-media; picture-in-picture"
-          allowFullScreen
-          title="Live stream"
-        />
-      )}
-      {/* Webcam */}
-      <video
-        ref={videoRef}
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ display: source === 'webcam' ? 'block' : 'none' }}
-        muted
-        playsInline
-      />
-      {/* Robot render */}
-      <canvas
-        ref={canvasRef}
-        className="w-full h-full block relative"
-        style={{ minHeight: 240, display: source === 'robot' ? 'block' : 'none' }}
-      />
-      {source !== 'robot' && <div style={{ minHeight: 240 }} />}
+      <canvas ref={canvasRef} className="w-full h-full block" style={{ minHeight: 240 }} />
 
       {/* HUD overlay */}
       <div className="absolute inset-0 pointer-events-none p-3 flex flex-col justify-between">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 bg-black/55 rounded-lg px-2.5 py-1 backdrop-blur">
-            <span className={`w-2 h-2 rounded-full animate-pulse ${isLive ? 'bg-red-500' : 'bg-sky-400'}`} />
-            <span className="text-[11px] font-mono font-bold text-white tracking-wider">{badge}</span>
+            <span className="w-2 h-2 rounded-full animate-pulse bg-sky-400" />
+            <span className="text-[11px] font-mono font-bold text-white tracking-wider">
+              CAM-01 • ROBOT VIEW
+            </span>
           </div>
-
-          {/* Source selector (clickable) */}
-          <div className="pointer-events-auto flex items-center gap-1 bg-black/55 rounded-lg p-1 backdrop-blur">
-            {(
-              [
-                ['robot', 'EMMA Robot'],
-                ['internet', 'Internet Cam'],
-                ['webcam', 'My Webcam'],
-              ] as [Source, string][]
-            ).map(([s, label]) => (
-              <button
-                key={s}
-                onClick={() => selectSource(s)}
-                className={`text-[10px] font-semibold px-2 py-1 rounded ${
-                  source === s ? 'bg-emma-orange text-steel-950' : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="bg-black/55 rounded-lg px-2.5 py-1 backdrop-blur text-[11px] font-mono text-slate-300">
+            {new Date().toLocaleTimeString([], { hour12: false })} • {robot.job.completionPercent.toFixed(0)}%
           </div>
         </div>
 
@@ -388,41 +327,14 @@ export default function CameraPanel({ robot, animationSpeed }: { robot: Robot; a
             <div className="text-xs font-semibold text-white">{robot.job.currentStep}</div>
           </div>
           <div className="bg-black/55 rounded-lg px-2.5 py-1.5 backdrop-blur font-mono text-[11px] text-slate-300">
-            {new Date().toLocaleTimeString([], { hour12: false })} • {robot.job.completionPercent.toFixed(0)}%
+            Speed {robot.actualSpeed}% • Spray {robot.sprayIntensity}%
           </div>
         </div>
       </div>
 
-      {/* Internet URL editor */}
-      {source === 'internet' && (
-        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 w-[90%] max-w-md pointer-events-auto">
-          <div className="flex gap-1.5 bg-black/70 rounded-lg p-1.5 backdrop-blur">
-            <input
-              value={streamUrl}
-              onChange={(e) => setStreamUrl(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && setEmbedUrl(toEmbed(streamUrl))}
-              placeholder="Paste a YouTube live URL…"
-              className="flex-1 bg-steel-800 border border-white/10 rounded px-2 py-1 text-[11px] text-slate-100 focus:outline-none focus:border-emma-orange"
-            />
-            <button
-              onClick={() => setEmbedUrl(toEmbed(streamUrl))}
-              className="bg-emma-orange text-steel-950 text-[11px] font-bold px-3 rounded"
-            >
-              Load
-            </button>
-          </div>
-        </div>
-      )}
-
-      {error && source === 'webcam' && (
-        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 bg-black/75 text-amber-300 text-[11px] px-3 py-1.5 rounded-lg backdrop-blur pointer-events-none">
-          {error}
-        </div>
-      )}
-
-      {robot.obstacles.length > 0 && source === 'robot' && (
+      {clearing && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-amber-500/90 text-black text-xs font-bold px-3 py-1.5 rounded-lg animate-pulse pointer-events-none">
-          ⚠ OBSTACLE DETECTED — SLOWING
+          ⚠ OBSTACLE DETECTED — MOVING ASIDE
         </div>
       )}
       {estop && (

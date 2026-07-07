@@ -10,6 +10,7 @@ import {
   setSetpoint,
   acknowledgeFault,
   resetFaults,
+  resetObstacles,
 } from './simulation.js';
 import { getSystemMetrics } from './systemMetrics.js';
 
@@ -154,6 +155,7 @@ app.post('/api/job/start', (req, res) => {
   state.job.completedM2 = 0;
   state.job.completionPercent = 0;
   state.job.stepIndex = 1;
+  resetObstacles(state);
   const r = applyControl(state, 'start', log);
   broadcast(buildSnapshot());
   res.json(r);

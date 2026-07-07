@@ -15,9 +15,9 @@ export interface Fault {
 
 export interface Obstacle {
   id: number;
-  x: number;
-  y: number;
-  ttl: number;
+  atPercent: number; // where along the surface it sits (0-100)
+  type: 'crate' | 'toolbox' | 'cone';
+  state: 'ahead' | 'clearing' | 'cleared';
 }
 
 export interface Job {
