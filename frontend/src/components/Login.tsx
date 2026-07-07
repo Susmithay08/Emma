@@ -29,20 +29,13 @@ export default function Login({ onLogin }: { onLogin: (operator: string) => void
   };
 
   return (
-    <div className="h-full w-full grid place-items-center bg-em-void overflow-hidden">
-      {/* Box matched to the artwork's 1512×1000 ratio, fitted to the viewport so
-          the whole image shows in proportion and the panel stays over its
-          reserved right-hand area at any screen size. */}
-      <div
-        className="relative"
-        style={{ width: 'min(100vw, calc(100vh * 1.512))', height: 'min(100vh, calc(100vw / 1.512))' }}
-      >
-        <img src="/login.png" alt="RoboOps Console" className="absolute inset-0 w-full h-full object-fill" />
+    <div className="h-full w-full relative overflow-hidden bg-em-void">
+      {/* full-screen brand background */}
+      <img src="/login.png" alt="RoboOps Console" className="absolute inset-0 w-full h-full object-cover object-center" />
 
-        <form
-          onSubmit={submit}
-          className="absolute top-1/2 -translate-y-1/2 right-[4%] w-[32%] min-w-[280px] max-w-[400px] glass p-6 lg:p-7 animate-riseIn"
-        >
+      {/* sign-in panel on the right */}
+      <div className="absolute inset-0 flex items-center justify-end pr-[6vw] pl-6">
+        <form onSubmit={submit} className="w-[400px] max-w-[90vw] glass p-8 animate-riseIn">
           <div className="text-center mb-6">
             <div className="text-[11px] font-bold tracking-[0.25em] text-em-orange uppercase">Operator Console</div>
             <h1 className="h-display text-3xl font-bold text-white mt-2">Welcome Back</h1>
