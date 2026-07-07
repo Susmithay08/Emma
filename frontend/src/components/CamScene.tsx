@@ -9,18 +9,34 @@ const PANEL_H = 2.4;
 const PANEL_Y = 0.5;
 const HALF = PANEL_W / 2;
 const FLOOR_Y = -1.45;
-const STANDOFF = 2.1; // how far in front of the panel the arm base sits
+const STANDOFF = 2.1; // arm base distance in front of the panel
+const SHOULDER_H = 0.8;
+const L1 = 1.4; // upper arm
+const LF = 1.0; // forearm
+const TOOL = 0.28;
+const L2 = LF + TOOL; // forearm + tool head (IK reaches the tool tip)
+const PIVOT_Y = FLOOR_Y + SHOULDER_H;
+
+type CarryRef = React.MutableRefObject<{ id: number; active: boolean; pos: THREE.Vector3 }>;
 
 function healthColor(h: string) {
   return h === 'fault' ? '#ff6b6b' : h === 'warning' ? '#ffb020' : '#35e17f';
 }
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
-// Workpiece: corroded slab with a bright "cleaned" region that grows L→R.
+// 2-link planar inverse kinematics: reach the tool tip to (R forward, dy up).
+function solveIK(R: number, dy: number) {
+  const D2 = R * R + dy * dy;
+  const cos2 = clamp((D2 - L1 * L1 - L2 * L2) / (2 * L1 * L2), -1, 1);
+  const phi2 = Math.acos(cos2);
+  const phi1 = Math.atan2(R, dy) - Math.atan2(L2 * Math.sin(phi2), L1 + L2 * Math.cos(phi2));
+  return { pitch1: -phi1, pitch2: -phi2 };
+}
+
 function Panel({ robotRef }: { robotRef: React.MutableRefObject<Robot> }) {
   const clean = useRef<THREE.Mesh>(null!);
   const edge = useRef<THREE.Mesh>(null!);
   const edgeMat = useRef<THREE.MeshBasicMaterial>(null!);
-
   useFrame(() => {
     const r = robotRef.current;
     const frac = Math.max(0.0001, r.job.completionPercent / 100);
@@ -35,7 +51,6 @@ function Panel({ robotRef }: { robotRef: React.MutableRefObject<Robot> }) {
     }
     if (edgeMat.current) edgeMat.current.color.set(healthColor(r.health));
   });
-
   return (
     <group position={[0, PANEL_Y, 0]}>
       <mesh receiveShadow>
@@ -54,35 +69,93 @@ function Panel({ robotRef }: { robotRef: React.MutableRefObject<Robot> }) {
   );
 }
 
-// Floor-mounted articulated arm (same chain as the hero scene) that slides
-// along a track in front of the panel and reaches in to strip the surface.
-function ArmRig({ robotRef, animationSpeed }: { robotRef: React.MutableRefObject<Robot>; animationSpeed: number }) {
+const V = new THREE.Vector3();
+const DESIRED = new THREE.Vector3();
+
+function ArmRig({ robotRef, animationSpeed, carry }: { robotRef: React.MutableRefObject<Robot>; animationSpeed: number; carry: CarryRef }) {
   const root = useRef<THREE.Group>(null!);
   const shoulder = useRef<THREE.Group>(null!);
   const elbow = useRef<THREE.Group>(null!);
   const wrist = useRef<THREE.Group>(null!);
-  const sprayMat = useRef<THREE.MeshBasicMaterial>(null!);
+  const tip = useRef<THREE.Object3D>(null!);
   const spray = useRef<THREE.Mesh>(null!);
-  const t = useRef(0);
+  const sprayMat = useRef<THREE.MeshBasicMaterial>(null!);
+  const target = useRef(new THREE.Vector3(-HALF, PANEL_Y, 0.16));
+  const baseX = useRef(-HALF);
+  const clock = useRef(0);
+  const clearId = useRef(-1);
+  const clearT = useRef(0);
 
   useFrame((_, d) => {
     const r = robotRef.current;
+    clock.current += d;
+    const running = r.status === 'running';
     const clearingOb = r.obstacles.find((o) => o.state === 'clearing');
     const frac = r.job.completionPercent / 100;
-    const targetX = clearingOb ? -HALF + (clearingOb.atPercent / 100) * PANEL_W : -HALF + frac * PANEL_W;
-    const running = r.status === 'running';
+    const edgeX = -HALF + frac * PANEL_W;
+
+    // base slides along the track toward the work point
+    const wantBaseX = clearingOb ? -HALF + (clearingOb.atPercent / 100) * PANEL_W : edgeX;
+    baseX.current += (wantBaseX - baseX.current) * Math.min(1, d * 3);
+
+    let grabbed = false;
+    if (clearingOb) {
+      if (clearId.current !== clearingOb.id) {
+        clearId.current = clearingOb.id;
+        clearT.current = 0;
+      }
+      clearT.current += d * animationSpeed;
+      const tt = clearT.current;
+      const ox = -HALF + (clearingOb.atPercent / 100) * PANEL_W;
+      const restY = PANEL_Y - PANEL_H / 2 + 0.28;
+      const dropY = FLOOR_Y + 0.3;
+      // pick-and-place keyframes: approach → grab → lift → carry → place → retract
+      if (tt < 0.8) DESIRED.set(ox, 0.25, 0.75); // approach above
+      else if (tt < 1.5) { DESIRED.set(ox, restY, 0.55); grabbed = tt > 1.15; } // grab
+      else if (tt < 2.3) { DESIRED.set(ox, 0.4, 0.9); grabbed = true; } // lift
+      else if (tt < 3.1) { DESIRED.set(ox, dropY + 0.15, 1.05); grabbed = true; } // carry down to floor
+      else DESIRED.set(ox, 0.25, 0.75); // release + retract
+    } else {
+      clearId.current = -1;
+      clearT.current = 0;
+      const wob = running ? Math.sin(clock.current * 3) * 0.12 : 0;
+      DESIRED.set(edgeX, PANEL_Y + wob, 0.16); // paint at working edge
+    }
+
+    // ease the actual target for smooth motion
+    target.current.lerp(DESIRED, Math.min(1, d * 3.5));
+
+    // solve IK toward eased target (relative to the base)
+    const dx = target.current.x - baseX.current;
+    const dzW = target.current.z - STANDOFF;
+    const yaw = Math.atan2(-dx, -dzW);
+    const Rh = Math.hypot(dx, dzW);
+    const dy = target.current.y - PIVOT_Y;
+    const { pitch1, pitch2 } = solveIK(Rh, dy);
+
+    if (root.current) {
+      root.current.position.x = baseX.current;
+      root.current.rotation.y = yaw;
+    }
+    if (shoulder.current) shoulder.current.rotation.x = pitch1;
+    if (elbow.current) elbow.current.rotation.x = pitch2;
+    if (wrist.current) wrist.current.rotation.x = running && !clearingOb ? Math.sin(clock.current * 4) * 0.05 : 0;
+
+    // carried obstacle follows the tool tip
+    if (tip.current) {
+      tip.current.getWorldPosition(V);
+      if (clearingOb && grabbed) {
+        carry.current.active = true;
+        carry.current.id = clearingOb.id;
+        carry.current.pos.copy(V);
+        carry.current.pos.y -= 0.25;
+      } else {
+        carry.current.active = false;
+        carry.current.id = -1;
+      }
+    }
+
     const painting = running && !clearingOb;
-    if (running) t.current += d * animationSpeed;
-
-    if (root.current) root.current.position.x += (targetX - root.current.position.x) * Math.min(1, d * 4);
-
-    // Pose reaches up-and-forward to the panel; small oscillation while working.
-    const osc = running ? Math.sin(t.current * 2.2) * 0.08 : 0;
-    const lean = clearingOb ? 0.22 : 0; // dip toward the obstacle to push it
-    if (shoulder.current) shoulder.current.rotation.x = -0.78 - lean + osc;
-    if (elbow.current) elbow.current.rotation.x = -0.82 - osc * 0.6;
-    if (wrist.current) wrist.current.rotation.x = -0.55 + (running ? Math.sin(t.current * 3.3) * 0.06 : 0);
-
     if (spray.current) spray.current.visible = painting;
     if (sprayMat.current) sprayMat.current.opacity = painting ? 0.12 + (r.sprayIntensity / 100) * 0.28 : 0;
   });
@@ -93,7 +166,6 @@ function ArmRig({ robotRef, animationSpeed }: { robotRef: React.MutableRefObject
 
   return (
     <group ref={root} position={[-HALF, FLOOR_Y, STANDOFF]}>
-      {/* pedestal */}
       <mesh position={[0, 0.12, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[0.5, 0.62, 0.24, 40]} />
         {dark}
@@ -102,47 +174,40 @@ function ArmRig({ robotRef, animationSpeed }: { robotRef: React.MutableRefObject
         <cylinderGeometry args={[0.38, 0.5, 0.5, 32]} />
         {accent}
       </mesh>
-      {/* shoulder → upper arm */}
-      <group ref={shoulder} position={[0, 0.75, 0]}>
+      <group ref={shoulder} position={[0, SHOULDER_H, 0]}>
         <mesh castShadow>
           <sphereGeometry args={[0.32, 28, 28]} />
           {dark}
         </mesh>
-        <mesh position={[0, 0.85, 0]} castShadow>
-          <boxGeometry args={[0.28, 1.7, 0.28]} />
+        <mesh position={[0, L1 / 2, 0]} castShadow>
+          <boxGeometry args={[0.28, L1, 0.28]} />
           {steel}
         </mesh>
-        <mesh position={[0.16, 0.85, 0]} castShadow>
-          <boxGeometry args={[0.05, 1.5, 0.3]} />
+        <mesh position={[0.16, L1 / 2, 0]} castShadow>
+          <boxGeometry args={[0.05, L1 * 0.85, 0.3]} />
           {accent}
         </mesh>
-        {/* elbow → forearm */}
-        <group ref={elbow} position={[0, 1.7, 0]}>
+        <group ref={elbow} position={[0, L1, 0]}>
           <mesh castShadow>
             <sphereGeometry args={[0.26, 24, 24]} />
             {accent}
           </mesh>
-          <mesh position={[0, 0.72, 0]} castShadow>
-            <boxGeometry args={[0.22, 1.45, 0.22]} />
+          <mesh position={[0, LF / 2, 0]} castShadow>
+            <boxGeometry args={[0.22, LF, 0.22]} />
             {steel}
           </mesh>
-          {/* wrist → tool head */}
-          <group ref={wrist} position={[0, 1.45, 0]}>
+          <group ref={wrist} position={[0, LF, 0]}>
             <mesh castShadow>
               <sphereGeometry args={[0.2, 20, 20]} />
               {dark}
             </mesh>
-            <mesh position={[0, 0.3, 0]} castShadow>
-              <cylinderGeometry args={[0.14, 0.2, 0.36, 20]} />
+            <mesh position={[0, TOOL / 2, 0]} castShadow>
+              <cylinderGeometry args={[0.13, 0.19, TOOL, 20]} />
               {accent}
             </mesh>
-            <mesh position={[0, 0.56, 0]}>
-              <coneGeometry args={[0.11, 0.26, 16]} />
-              {dark}
-            </mesh>
-            {/* spray cone continuing toward the surface */}
-            <mesh ref={spray} position={[0, 0.9, 0]} rotation={[Math.PI, 0, 0]}>
-              <coneGeometry args={[0.26, 0.7, 20, 1, true]} />
+            <object3D ref={tip} position={[0, TOOL, 0]} />
+            <mesh ref={spray} position={[0, TOOL + 0.28, 0]} rotation={[Math.PI, 0, 0]}>
+              <coneGeometry args={[0.24, 0.6, 20, 1, true]} />
               <meshBasicMaterial ref={sprayMat} color="#86c8ff" transparent opacity={0.2} side={THREE.DoubleSide} depthWrite={false} />
             </mesh>
           </group>
@@ -152,11 +217,10 @@ function ArmRig({ robotRef, animationSpeed }: { robotRef: React.MutableRefObject
   );
 }
 
-// Floor track the arm base rides on.
 function Track() {
   return (
     <mesh position={[0, FLOOR_Y + 0.01, STANDOFF]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[PANEL_W + 1.5, 0.5]} />
+      <planeGeometry args={[PANEL_W + 1.5, 0.6]} />
       <meshStandardMaterial color="#12241b" metalness={0.4} roughness={0.6} />
     </mesh>
   );
@@ -164,46 +228,35 @@ function Track() {
 
 const OBSTACLE_COLOR = { crate: '#8a5a2b', toolbox: '#c0392b', cone: '#ff7a1a' } as const;
 
-function Obstacles({ robotRef }: { robotRef: React.MutableRefObject<Robot> }) {
-  const timers = useRef<Record<number, number>>({});
+function Obstacles({ robotRef, carry }: { robotRef: React.MutableRefObject<Robot>; carry: CarryRef }) {
   const groups = useRef<Record<number, THREE.Group | null>>({});
-
-  useFrame((_, d) => {
+  useFrame(() => {
     const r = robotRef.current;
     r.obstacles.forEach((o) => {
       const g = groups.current[o.id];
       if (!g) return;
       const ox = -HALF + (o.atPercent / 100) * PANEL_W;
-      const rest = new THREE.Vector3(ox, PANEL_Y - PANEL_H / 2 + 0.28, 0.55);
-      const aside = new THREE.Vector3(ox + 0.9, FLOOR_Y + 0.3, 1.4);
-      if (o.state === 'ahead') {
-        g.position.copy(rest);
+      if (carry.current.active && carry.current.id === o.id) {
+        g.position.copy(carry.current.pos); // riding the tool
+        g.rotation.z = 0;
+      } else if (o.state === 'cleared') {
+        g.position.set(ox, FLOOR_Y + 0.28, 1.05); // placed neatly on the floor
+        g.rotation.z = 0;
+        g.scale.setScalar(0.9);
+      } else {
+        g.position.set(ox, PANEL_Y - PANEL_H / 2 + 0.28, 0.55); // sitting on the panel
         g.rotation.z = 0;
         g.scale.setScalar(1);
-      } else if (o.state === 'clearing') {
-        timers.current[o.id] = (timers.current[o.id] || 0) + d;
-        const tt = timers.current[o.id];
-        const shake = Math.sin(tt * 22) * 0.12 * Math.max(0, 1 - tt);
-        const slide = Math.min(1, Math.max(0, (tt - 0.5) / 1.3));
-        g.position.lerpVectors(rest, aside, slide);
-        g.position.x += shake;
-        g.rotation.z = slide * 0.6;
-      } else {
-        g.position.copy(aside);
-        g.rotation.z = 0.6;
-        g.scale.setScalar(0.85);
-        timers.current[o.id] = 0;
       }
     });
   });
-
   return (
     <>
       {robotRef.current.obstacles.map((o) => (
         <group key={o.id} ref={(el) => (groups.current[o.id] = el)}>
           {o.type === 'cone' ? (
             <mesh castShadow>
-              <coneGeometry args={[0.3, 0.6, 20]} />
+              <coneGeometry args={[0.28, 0.56, 20]} />
               <meshStandardMaterial color={OBSTACLE_COLOR.cone} roughness={0.5} />
             </mesh>
           ) : (
@@ -219,6 +272,7 @@ function Obstacles({ robotRef }: { robotRef: React.MutableRefObject<Robot> }) {
 }
 
 function Scene({ robotRef, animationSpeed }: { robotRef: React.MutableRefObject<Robot>; animationSpeed: number }) {
+  const carry = useRef({ id: -1, active: false, pos: new THREE.Vector3() });
   return (
     <>
       <ambientLight intensity={0.45} />
@@ -226,8 +280,8 @@ function Scene({ robotRef, animationSpeed }: { robotRef: React.MutableRefObject<
       <directionalLight position={[-5, 3, 2]} intensity={0.4} color="#35e17f" />
       <Panel robotRef={robotRef} />
       <Track />
-      <ArmRig robotRef={robotRef} animationSpeed={animationSpeed} />
-      <Obstacles robotRef={robotRef} />
+      <ArmRig robotRef={robotRef} animationSpeed={animationSpeed} carry={carry} />
+      <Obstacles robotRef={robotRef} carry={carry} />
       <ContactShadows position={[0, FLOOR_Y, 0]} opacity={0.45} scale={16} blur={2.5} far={4} />
       <Grid position={[0, FLOOR_Y, 0]} args={[30, 20]} cellSize={0.6} cellColor="#173026" sectionSize={3} sectionColor="#2f6b4a" fadeDistance={22} infiniteGrid />
       <Environment preset="warehouse" />
