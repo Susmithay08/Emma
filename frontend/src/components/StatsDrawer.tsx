@@ -69,7 +69,7 @@ export default function StatsDrawer({
           <StatCard label="Connection" value={conn === 'online' ? latency : '—'} unit={conn === 'online' ? 'ms' : ''} level={conn === 'online' ? latencyLevel(latency) : 'bad'} source="LIVE" sub={conn === 'online' ? 'WebSocket · 1 Hz' : 'Reconnecting…'} />
         </div>
 
-        <div className="mb-4 h-56">
+        <div className="mb-4 h-72">
           <CameraPanel robot={r} animationSpeed={settings.animationSpeed} />
         </div>
 
