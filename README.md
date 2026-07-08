@@ -5,21 +5,49 @@
 > Hosted on Render's free tier, so the first load after it's been idle may take
 > ~30–60s to wake up.
 
-A production-quality full-stack HMI (Human-Machine Interface) for **AVA** — an
-industrial robotic surface-preparation system (aerospace, marine, transportation,
-manufacturing).
+RoboOps Console is a full-stack Human–Machine Interface (HMI) built to simulate
+the software used to operate industrial robotic systems. It demonstrates
+**real-time telemetry, operator controls, safety workflows, and 3D
+visualization** using modern web technologies — and runs end-to-end with no
+physical hardware.
 
-Built with **React + TypeScript + Tailwind + React Three Fiber** (frontend) and
-**Node.js + Express + WebSocket** (backend). Dark, orange-on-black RoboOps Console
-theme, Jost typography. Works immediately — no hardware required.
+**Stack:** React · TypeScript · Tailwind CSS · React Three Fiber (Three.js) ·
+Node.js · Express · WebSocket (`ws`) · Vite. Deployed as a single Node service on
+Render (the backend serves the built frontend, REST API and WebSocket from one
+origin).
 
 ---
 
-## "Real data, no fake data" — how this is honoured
+## Architecture
+
+```
+                    Browser
+          React + TypeScript
+                  │
+          WebSocket + REST
+                  │
+          Express / Node.js
+                  │
+     Simulation Engine (Robot)
+                  │
+  Telemetry • Fault Engine • Jobs
+```
+
+The browser holds **no business logic** — it renders the operator UI and 3D
+scenes, receives a full telemetry snapshot over a WebSocket at **1 Hz**, and
+issues operator commands over REST. The **Express server owns all state**: a
+deterministic simulation engine advances the robot model every tick, a fault
+engine evaluates threshold crossings, and a job system tracks surface-prep
+progress. Real host metrics (`os` / `process`) are merged into the same
+telemetry stream and tagged separately from simulated values (see below).
+
+---
+
+## Data model — simulated vs. live
 
 There is no physical robot attached, so a battery or hydraulic sensor cannot be
-literally read. The console is honest about the source of every value, badged
-**LIVE** or **SIM** throughout the UI:
+literally read. Every value carries its provenance, badged **LIVE** or **SIM**
+throughout the UI:
 
 | Source | Meaning | Examples |
 |--------|---------|----------|
@@ -75,6 +103,41 @@ npm run build            # production build of the frontend
 **Controls** everywhere: Start, Pause, Resume, Emergency Stop, Return Home,
 Reset Faults; speed & spray sliders. Keyboard shortcuts: `Enter` = Start/Resume,
 `Space` = Pause, `Esc` = Emergency Stop. Auto-hiding nav rail (hover to expand).
+
+---
+
+## Engineering challenges
+
+- **Synchronizing robot state across multiple UI panels** — a single 1 Hz
+  telemetry snapshot is the one source of truth, so the dashboard, both 3D
+  scenes, the controls and the stats drawer stay consistent without local copies
+  drifting out of sync.
+- **Creating believable robot movement with inverse kinematics** — the
+  surface-prep arm is driven by 2-link IK so the tool tip lands exactly on the
+  work surface, instead of hand-animated poses that clip through or float off it.
+- **Separating simulated telemetry from live machine metrics** — host readings
+  (CPU, memory, latency, uptime) are genuinely measured and badged `LIVE`, while
+  physics-modelled robot values are badged `SIM`; the two are never conflated.
+- **Designing an operator interface usable with touch input** — large hit
+  targets, glove-friendly controls, an auto-hiding nav rail, and keyboard
+  shortcuts for the safety-critical actions.
+- **A fault engine driven by threshold crossings, not random events** — faults
+  are raised when the model crosses real limits (e.g. motor temp > 95 °C, low
+  hydraulic pressure under load, low battery), with de-duplication,
+  acknowledgement and reset.
+
+---
+
+## Future improvements
+
+- **ROS 2 integration** — drive real robot nodes instead of the simulation
+- **MQTT** and **OPC-UA** support for industrial messaging
+- **PLC integration**
+- **Multiple robots / fleet control**
+- **Live camera streaming** (WebRTC)
+- **Historical telemetry database** (time-series storage & replay)
+- **Predictive maintenance** and **AI anomaly detection**
+- **Mobile / tablet operator mode**
 
 ---
 
