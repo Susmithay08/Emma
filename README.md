@@ -1,5 +1,10 @@
 # RoboOps Console — AVA Operator Console
 
+**🔴 Live demo → https://roboops-console.onrender.com/**
+
+> Hosted on Render's free tier, so the first load after it's been idle may take
+> ~30–60s to wake up.
+
 A production-quality full-stack HMI (Human-Machine Interface) for **AVA** — an
 industrial robotic surface-preparation system (aerospace, marine, transportation,
 manufacturing).
@@ -34,7 +39,7 @@ fabricated numbers.
 ## Run it
 
 ```bash
-cd emma-console
+cd roboops
 npm run install:all      # installs backend + frontend deps
 npm run dev              # starts backend (:4000) + frontend (:5173) together
 ```
@@ -93,7 +98,7 @@ Reset Faults; speed & spray sliders. Keyboard shortcuts: `Enter` = Start/Resume,
 ## Structure
 
 ```
-emma-console/
+roboops/
 ├── backend/src/
 │   ├── server.js          Express REST + WebSocket + 1 Hz sim loop
 │   ├── simulation.js      physics-coherent robot model + faults + obstacles
